@@ -2289,6 +2289,39 @@ pub trait Itertools : Iterator {
             None => Err(ExactlyOneError::new((None, None), self)),
         }
     }
+
+    /// Perform check for all if at least one value passes predicate
+    ///
+    /// ```
+    /// use itertools::Itertools;
+    ///
+    /// let input = vec![1, 2, 3];
+    /// let output = input.into_iter()
+    ///     .all_if_any(|v| v > 0);
+    /// assert_eq!(output, true);
+    ///
+    /// let input = vec![-1, -2, 3];
+    /// let output = input.into_iter()
+    ///     .all_if_any(|v| v > 0);
+    /// assert_eq!(output, false);
+    ///
+    /// let input = vec![-1, -2, -3];
+    /// let output = input.into_iter()
+    ///     .all_if_any(|v| v > 0);
+    /// assert_eq!(output, true);
+    /// ```
+
+    fn all_if_any<F>(mut self, predicate: F) -> bool
+        where
+            Self: Sized + Clone,
+            F: Fn(Self::Item) -> bool,
+    {
+        if self.clone().any(|v| predicate(v)) {
+            return self.all(|v| predicate(v))
+        }
+
+        true
+    }
 }
 
 impl<T: ?Sized> Itertools for T where T: Iterator { }
