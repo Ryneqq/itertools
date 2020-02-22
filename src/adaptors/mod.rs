@@ -233,6 +233,28 @@ impl<I> Iterator for PutBack<I>
         size_hint::add_scalar(self.iter.size_hint(), self.top.is_some() as usize)
     }
 
+    fn count(self) -> usize {
+        self.iter.count() + (self.top.is_some() as usize)
+    }
+
+    fn last(self) -> Option<Self::Item> {
+        self.iter.last().or(self.top)
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        match self.top {
+            None => self.iter.nth(n),
+            ref mut some => {
+                if n == 0 {
+                    some.take()
+                } else {
+                    *some = None;
+                    self.iter.nth(n - 1)
+                }
+            }
+        }
+    }
+
     fn all<G>(&mut self, mut f: G) -> bool
         where G: FnMut(Self::Item) -> bool
     {
@@ -370,7 +392,7 @@ impl<I, F> fmt::Debug for Batching<I, F> where I: fmt::Debug {
 
 /// Create a new Batching iterator.
 pub fn batching<I, F>(iter: I, f: F) -> Batching<I, F> {
-    Batching { f: f, iter: iter }
+    Batching { f, iter }
 }
 
 impl<B, F, I> Iterator for Batching<I, F>
@@ -534,7 +556,7 @@ pub fn merge_by_new<I, J, F>(a: I, b: J, cmp: F) -> MergeBy<I::IntoIter, J::Into
         a: a.into_iter().peekable(),
         b: b.into_iter().peekable(),
         fused: None,
-        cmp: cmp,
+        cmp,
     }
 }
 
@@ -655,9 +677,9 @@ pub fn coalesce<I, F>(mut iter: I, f: F) -> Coalesce<I, F>
     Coalesce {
         iter: CoalesceCore {
             last: iter.next(),
-            iter: iter,
+            iter,
         },
-        f: f,
+        f,
     }
 }
 
@@ -725,7 +747,7 @@ pub fn dedup_by<I, Pred>(mut iter: I, dedup_pred: Pred) -> DedupBy<I, Pred>
     DedupBy {
         iter: CoalesceCore {
             last: iter.next(),
-            iter: iter,
+            iter,
         },
         dedup_pred,
     }
@@ -801,7 +823,7 @@ impl<'a, I, F> fmt::Debug for TakeWhileRef<'a, I, F>
 pub fn take_while_ref<I, F>(iter: &mut I, f: F) -> TakeWhileRef<I, F>
     where I: Iterator + Clone
 {
-    TakeWhileRef { iter: iter, f: f }
+    TakeWhileRef { iter, f }
 }
 
 impl<'a, I, F> Iterator for TakeWhileRef<'a, I, F>
@@ -843,7 +865,7 @@ pub struct WhileSome<I> {
 
 /// Create a new `WhileSome<I>`.
 pub fn while_some<I>(iter: I) -> WhileSome<I> {
-    WhileSome { iter: iter }
+    WhileSome { iter }
 }
 
 impl<I, A> Iterator for WhileSome<I>
@@ -915,7 +937,7 @@ pub struct Tuple1Combination<I> {
 
 impl<I> From<I> for Tuple1Combination<I> {
     fn from(iter: I) -> Self {
-        Tuple1Combination { iter: iter }
+        Tuple1Combination { iter }
     }
 }
 
@@ -1007,7 +1029,7 @@ pub struct MapInto<I, R> {
 /// Create a new [`MapInto`](struct.MapInto.html) iterator.
 pub fn map_into<I, R>(iter: I) -> MapInto<I, R> {
     MapInto {
-        iter: iter,
+        iter,
         _res: PhantomData,
     }
 }
@@ -1068,8 +1090,8 @@ pub fn map_results<I, F, T, U, E>(iter: I, f: F) -> MapResults<I, F>
           F: FnMut(T) -> U,
 {
     MapResults {
-        iter: iter,
-        f: f,
+        iter,
+        f,
     }
 }
 
@@ -1119,8 +1141,8 @@ pub fn positions<I, F>(iter: I, f: F) -> Positions<I, F>
           F: FnMut(I::Item) -> bool,
 {
     Positions {
-        iter: iter,
-        f: f,
+        iter,
+        f,
         count: 0
     }
 }
@@ -1177,7 +1199,7 @@ where
     I: Iterator,
     F: FnMut(&mut I::Item),
 {
-    Update { iter: iter, f: f }
+    Update { iter, f }
 }
 
 impl<I, F> Iterator for Update<I, F>
